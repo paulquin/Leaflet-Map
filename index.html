@@ -54,20 +54,60 @@
     'RoadNetwork_BC_half_2.geojson'
   ];
 
-  geojsonFiles.forEach(file => {
-    fetch(file)
-      .then(response => response.json())
-      .then(data => {
-        L.geoJSON(data, {
-          style: {
-            color: '#FF0000',
-            weight: 1,
-            opacity: 0.4
-          }
-        }).addTo(map);
-      })
-      .catch(error => console.error('Error loading', file, error));
+  const geojsonLayers = [];
+
+  // Function to load GeoJSON once
+  function loadGeoJSONFiles() {
+    geojsonFiles.forEach((file, index) => {
+      if (!geojsonLayers[index]) {
+        fetch(file)
+          .then(response => response.json())
+          .then(data => {
+            const layer = L.geoJSON(data, {
+              style: {
+                color: '#FF0000',
+                weight: 1,
+                opacity: 0.4
+              }
+            });
+            geojsonLayers[index] = layer;
+            if (map.getZoom() >= 8) {
+              layer.addTo(map);
+            }
+          })
+          .catch(error => console.error('Error loading', file, error));
+      }
+    });
+  }
+
+  // Load layers initially if already zoomed in enough
+  map.on('load', () => {
+    if (map.getZoom() >= 8) {
+      loadGeoJSONFiles();
+    }
   });
+
+  // Add/remove based on zoom
+  map.on('zoomend', () => {
+    const zoom = map.getZoom();
+    if (zoom >= 8) {
+      loadGeoJSONFiles(); // Load if not already
+      geojsonLayers.forEach(layer => {
+        if (layer && !map.hasLayer(layer)) {
+          map.addLayer(layer);
+        }
+      });
+    } else {
+      geojsonLayers.forEach(layer => {
+        if (layer && map.hasLayer(layer)) {
+          map.removeLayer(layer);
+        }
+      });
+    }
+  });
+
+  // Force 'load' event to fire
+  map.fire('load');
 </script>
 
 </body>
